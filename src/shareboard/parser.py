@@ -1,3 +1,4 @@
+# vim: set fileencoding=utf-8 :
 import subprocess
 
 
@@ -9,5 +10,5 @@ class ShellParser(object):
         p = subprocess.Popen(self.command, shell=True,
                              stdin=subprocess.PIPE,
                              stdout=subprocess.PIPE)
-        stdout, stderr = p.communicate(data)
-        return stdout
+        stdout, stderr = p.communicate(data.encode('utf-8'))
+        return unicode(stdout, 'utf-8')

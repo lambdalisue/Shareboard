@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # vim: set fileencoding=utf-8 :
 import urlparse
 from BaseHTTPServer import HTTPServer
@@ -68,11 +67,17 @@ class RequestServer(object):
         try:
             self.httpd.serve_forever()
         except KeyboardInterrupt:
-            exit(0)
+            if hasattr(self, 'qApp'):
+                exit(0)
+                self.qApp.quit()
+            else:
+                exit(0)
 
     def get_data_from_queryset(self, queryset):
         queryset = urlparse.parse_qs(queryset, 1)
         data = queryset.get('data', [self.previous_data])[0]
+        # data is passed as utf-8
+        data = unicode(data, 'utf-8')
         # callback
         if self.callback and callable(self.callback):
             data = self.callback(data)
@@ -82,6 +87,7 @@ class RequestServer(object):
 
 
 def create_server_thread(server):
+    from PySide.QtGui import qApp
     from PySide.QtCore import Signal
     from PySide.QtCore import QThread
 
@@ -99,4 +105,5 @@ def create_server_thread(server):
         def emit_request_recieved(self, data):
             # emit
             self.request_recieved.emit(data)
+    server.qApp = qApp
     return RequestServerThread(server)
