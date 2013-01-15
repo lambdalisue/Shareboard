@@ -51,7 +51,8 @@ def start_share_server(host, port, command, silent, viewer=False):
 
 def setshare(host, port, data, method='POST'):
     url = 'http://%s:%s/' % (host, port)
-    params = {'data': data}
+    # pass data as utf-8
+    params = {'data': data.encode('utf-8')}
     if method == 'GET':
         r = requests.get(url, params=params)
     else:
@@ -70,17 +71,21 @@ def main():
         start_share_server(args.host, args.port, args.command, args.silent, args.viewer)
 
     def set(args):
-        setshare(args.host, args.port, args.data, args.method)
+        data = unicode(args.data, args.encoding)
+        setshare(args.host, args.port, data, args.method)
 
     def get(args):
         r = getshare(args.host, args.port)
-        print r.text
+        data = r.text.encode(args.encoding)
+        return data
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-o', '--host', dest='host', default=HOST,
                         help='IP or Name of shareboard server')
     parser.add_argument('-p', '--port', dest='port', default=PORT, type=int,
                         help='Port number of shareboard server')
+    parser.add_argument('-e', '--encoding', dest='encoding', default='utf-8',
+                        help='Encoding')
     subparsers = parser.add_subparsers()
 
     # create the subparser for the 'start' command
