@@ -1,0 +1,113 @@
+#!/usr/bin/env python
+# vim: set fileencoding=utf-8 :
+import argparse
+import socket
+import requests
+from shareboard.server import RequestServer
+from shareboard.parser import ShellParser
+
+
+HOST = 'localhost'
+PORT = 8081
+
+
+def is_running(host, port):
+    s = socket.socket()
+    try:
+        s.settimeout(1)
+        s.connect((host, port))
+        return True
+    except socket.error:
+        return False
+
+
+def start_share_server(host, port, command, silent, viewer=False):
+    if is_running(host, port):
+        print "%s:%s is already taken" % (host, port)
+        exit(1)
+
+    # Create command if it's specified
+    if command:
+        command = ShellParser(command).parse
+
+    server = RequestServer(host, port, callback=command, silent=silent)
+
+    if not viewer:
+        # simply start shareboard server
+        server.start()
+    else:
+        from PySide.QtNetwork import QNetworkProxyFactory
+        from shareboard.server import create_server_thread
+        from shareboard.viewer import Viewer
+        # Use system proxy settings
+        QNetworkProxyFactory.setUseSystemConfiguration(True)
+        # start shareboard server within QThread
+        server_thread = create_server_thread(server)
+        server_thread.start()
+        # start shareboard viewer
+        viewer = Viewer(server)
+        viewer.start()
+
+
+def setshare(host, port, data, method='POST'):
+    url = 'http://%s:%s/' % (host, port)
+    params = {'data': data}
+    if method == 'GET':
+        r = requests.get(url, params=params)
+    else:
+        r = requests.post(url, data=params)
+    return r
+
+
+def getshare(host, port):
+    url = 'http://%s:%s/' % (host, port)
+    r = requests.get(url)
+    return r
+
+
+def main():
+    def start(args):
+        start_share_server(args.host, args.port, args.command, args.silent, args.viewer)
+
+    def set(args):
+        setshare(args.host, args.port, args.data, args.method)
+
+    def get(args):
+        r = getshare(args.host, args.port)
+        print r.text
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-o', '--host', dest='host', default=HOST,
+                        help='IP or Name of shareboard server')
+    parser.add_argument('-p', '--port', dest='port', default=PORT, type=int,
+                        help='Port number of shareboard server')
+    subparsers = parser.add_subparsers()
+
+    # create the subparser for the 'start' command
+    parser_start = subparsers.add_parser('start',
+                                         help='Start shareboard server')
+    parser_start.add_argument('-c', '--command',
+                              help='Shell command executed to parse data')
+    parser_start.add_argument('-s', '--silent', default=False, action='store_true',
+                              help='Do not print access log')
+    parser_start.add_argument('-v', '--viewer', default=False, action='store_true',
+                              help='Start shareboard viewer. Qt and PySide are required to be installed')
+    parser_start.set_defaults(func=start)
+    # create the subparser for the 'set' command
+    parser_set = subparsers.add_parser('set',
+                                       help='Post new data to the shareboard')
+    parser_set.add_argument('data',
+                            help='Data to be seted to the shareboard')
+    parser_set.add_argument('-m', '--method', default='POST', choices=['GET', 'POST'],
+                            help='Method to communicate with the shareboard')
+    parser_set.set_defaults(func=set)
+    # create the subparser for the 'get' command
+    parser_get = subparsers.add_parser('get',
+                                       help='Get data from the shareboard')
+    parser_get.set_defaults(func=get)
+
+    args = parser.parse_args()
+    args.func(args)
+
+if __name__ == '__main__':
+    main()
