@@ -11,6 +11,6 @@ class ShellParser(object):
                              stdin=subprocess.PIPE,
                              stdout=subprocess.PIPE)
         # the text should be encoded to use in Shell
-        stdout, stderr = p.communicate(data.encode(encoding))
+        stdout, stderr = p.communicate(text.encode(encoding))
         # the text should be decoded to use in Python
         return unicode(stdout, encoding)

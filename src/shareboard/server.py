@@ -36,7 +36,7 @@ class HTTPPreviewRequestHandler(BaseHTTPRequestHandler):
             text = unicode(request['text'].value, self.server.encoding)
             # modify the text with callback if it's specified
             if self.server.callback:
-                text = self.callback(text)
+                text = self.server.callback(text)
             # store the value
             self.text = text
             # emit request recieved if it's required
