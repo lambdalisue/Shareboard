@@ -1,109 +1,71 @@
 # vim: set fileencoding=utf-8 :
+import cgi
 import urlparse
 from BaseHTTPServer import HTTPServer
 from BaseHTTPServer import BaseHTTPRequestHandler
 
 
+REQUEST_IGNORE_PATHS = (
+        '/favicon.ico',
+    )
+
+
+class HTTPPreviewRequestHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path in REQUEST_IGNORE_PATHS:
+            return
+        # respond data
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(self.text)
+
+    def do_POST(self):
+        try:
+            request = cgi.FieldStorage(
+                    self.rfile, self.headers, environ={
+                    'REQUEST_METHOD': 'POST',
+                    'CONTENT_TYPE': self.headers['Content-Type'],
+                })
+            if 'text' not in request:
+                msg = 'The request should contain "text" field to set new text'
+                self.send_response(400, msg)
+                self.end_headers()
+                self.wfile.write(msg)
+                return
+            # decode text to unicode
+            text = unicode(request['text'].value, self.server.encoding)
+            # modify the text with callback if it's specified
+            if self.server.callback:
+                text = self.callback(text)
+            # store the value
+            self.text = text
+            # emit request recieved if it's required
+            if hasattr(self.server, 'emitter'):
+                self.server.emitter.emit_request_recieved(text)
+            # respond OK
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write('OK')
+        except Exception, e:
+            print "Error:", e
+            self.send_response(500, e)
+            self.end_headers()
+            self.wfile.write("Unexpected error: %s" % e)
+
+    def log_message(self, format, *args):
+        if not self.server.silent:
+            # `super(cls, self).log_message(format, *args)` did not work
+            BaseHTTPRequestHandler.log_message(self, format, *args)
+        return None
+
+
 class RequestServer(object):
-    class HTTPPreviewRequestHandler(BaseHTTPRequestHandler):
-        @property
-        def request_server(self):
-            return self.server.request_server
-
-        def do_GET(self):
-            try:
-                if self.path == '/favicon.ico':
-                    return
-                queryset = urlparse.urlparse(self.path).query
-                data = self.request_server.get_data_from_queryset(queryset)
-                # emit request recieved
-                if hasattr(self.request_server, 'thread'):
-                    self.request_server.thread.emit_request_recieved(data)
-                # respond data
-                self.send_response(200)
-                self.end_headers()
-                self.wfile.write(data)
-            except Exception, e:
-                print "Error:", e
-                self.send_response(200)
-                self.end_headers()
-                self.wfile.write("Unexpected error: %s" % e)
-
-        def do_POST(self):
-            try:
-                # get pandoc filename from query string
-                queryset = self.rfile.read(int(self.headers.getheader('Content-Length')))
-                data = self.request_server.get_data_from_queryset(queryset)
-                # emit request recieved
-                if hasattr(self.request_server, 'thread'):
-                    self.request_server.thread.emit_request_recieved(data)
-                # respond OK
-                self.send_response(200)
-                self.end_headers()
-                self.wfile.write('OK')
-            except Exception, e:
-                print "Error:", e
-                self.send_response(200)
-                self.end_headers()
-                self.wfile.write("Unexpected error: %s" % e)
-
-        def log_message(self, format, *args):
-            if not self.request_server.silent:
-                # `super(cls, self).log_message(format, *args)` did not work
-                BaseHTTPRequestHandler.log_message(self, format, *args)
-            return None
-
-    def __init__(self, host, port, callback=None, silent=False):
+    def __init__(self, host, port, encoding='utf-8', callback=None, silent=False):
         super(RequestServer, self).__init__()
-        self.host = host
-        self.port = port
-        self.callback = callback
-        self.silent = silent
-        self.httpd = HTTPServer((host, port), self.HTTPPreviewRequestHandler)
-        self.httpd.request_server = self
-        self.previous_data = ''
+        self.httpd = HTTPServer((host, port), HTTPPreviewRequestHandler)
+        self.httpd.encoding = encoding
+        self.httpd.callback = callback
+        self.httpd.silent = silent
 
     def start(self):
-        try:
-            self.httpd.serve_forever()
-        except KeyboardInterrupt:
-            if hasattr(self, 'qApp'):
-                exit(0)
-                self.qApp.quit()
-            else:
-                exit(0)
-
-    def get_data_from_queryset(self, queryset):
-        queryset = urlparse.parse_qs(queryset, 1)
-        data = queryset.get('data', [self.previous_data])[0]
-        # data is passed as utf-8
-        data = unicode(data, 'utf-8')
-        # callback
-        if self.callback and callable(self.callback):
-            data = self.callback(data)
-        # store this data as previous_data
-        self.previous_data = data
-        return data
-
-
-def create_server_thread(server):
-    from PySide.QtGui import qApp
-    from PySide.QtCore import Signal
-    from PySide.QtCore import QThread
-
-    class RequestServerThread(QThread):
-        request_recieved = Signal(unicode)
-
-        def __init__(self, server):
-            super(RequestServerThread, self).__init__()
-            self.server = server
-            self.server.thread = self
-
-        def run(self):
-            self.server.start()
-
-        def emit_request_recieved(self, data):
-            # emit
-            self.request_recieved.emit(data)
-    server.qApp = qApp
-    return RequestServerThread(server)
+        self.httpd.serve_forever()

@@ -1,14 +1,22 @@
 #!/usr/bin/env python
 # vim: set fileencoding=utf-8 :
+#
+# Author:   lambdalisue (lambdalisue@hashnote.net)
+# URL:      http://hashnote.net/
+# License:  MIT license
+# Created:  2013-01-16
+#
 import argparse
 import socket
 import requests
-from shareboard.server import RequestServer
 from shareboard.parser import ShellParser
+from shareboard.server import RequestServer
 
 
 HOST = 'localhost'
 PORT = 8081
+ENCODING = 'utf-8'
+DEFAULT_TIMEOUT = 5.0
 
 
 def is_running(host, port):
@@ -21,64 +29,48 @@ def is_running(host, port):
         return False
 
 
-def start_share_server(host, port, command, silent, viewer=False):
-    if is_running(host, port):
-        print "%s:%s is already taken" % (host, port)
+def start(args):
+    if is_running(args.host, args.port):
+        print "%s:%s is already taken" % (args.host, args.port)
         exit(1)
 
     # Create command if it's specified
-    if command:
-        command = ShellParser(command).parse
+    if args.command:
+        command = ShellParser(args.command).parse
+    else:
+        command = None
 
-    server = RequestServer(host, port, callback=command, silent=silent)
+    server = RequestServer(args.host, args.port, args.encoding,
+                           callback=command, silent=args.silent)
 
-    if not viewer:
+    if not args.viewer:
         # simply start shareboard server
         server.start()
     else:
-        from PySide.QtNetwork import QNetworkProxyFactory
-        from shareboard.server import create_server_thread
-        from shareboard.viewer import Viewer
-        # Use system proxy settings
-        QNetworkProxyFactory.setUseSystemConfiguration(True)
-        # start shareboard server within QThread
-        server_thread = create_server_thread(server)
-        server_thread.start()
-        # start shareboard viewer
-        viewer = Viewer(server)
-        viewer.start()
+        from shareboard.gui.main import start_with
+        start_with(server)
 
 
-def setshare(host, port, data, method='POST'):
-    url = 'http://%s:%s/' % (host, port)
-    # pass data as utf-8
-    params = {'data': data.encode('utf-8')}
-    if method == 'GET':
-        r = requests.get(url, params=params)
-    else:
-        r = requests.post(url, data=params)
-    return r
+def set(args):
+    url = 'http://%s:%s/' % (args.host, args.port)
+    kwargs = {
+            'data': {'text': args.text},
+            'timeout': args.timeout,
+        }
+    requests.post(url, **kwargs)
 
 
-def getshare(host, port):
-    url = 'http://%s:%s/' % (host, port)
-    r = requests.get(url)
-    return r
+def get(args):
+    url = 'http://%s:%s/' % (args.host, args.port)
+    # text should be passed as encoded text
+    kwargs = {
+            'timeout': args.timeout,
+        }
+    res = requests.get(url, timeout=args.timeout)
+    print res.text
 
 
 def main():
-    def start(args):
-        start_share_server(args.host, args.port, args.command, args.silent, args.viewer)
-
-    def set(args):
-        data = unicode(args.data, args.encoding)
-        setshare(args.host, args.port, data, args.method)
-
-    def get(args):
-        r = getshare(args.host, args.port)
-        data = r.text.encode(args.encoding)
-        return data
-
     parser = argparse.ArgumentParser()
     parser.add_argument('-o', '--host', dest='host', default=HOST,
                         help='IP or Name of shareboard server')
@@ -101,14 +93,16 @@ def main():
     # create the subparser for the 'set' command
     parser_set = subparsers.add_parser('set',
                                        help='Post new data to the shareboard')
-    parser_set.add_argument('data',
-                            help='Data to be seted to the shareboard')
-    parser_set.add_argument('-m', '--method', default='POST', choices=['GET', 'POST'],
-                            help='Method to communicate with the shareboard')
+    parser_set.add_argument('text', type=unicode,
+                            help='Text data to be seted to the shareboard')
+    parser_set.add_argument('-t', '--timeout', default=DEFAULT_TIMEOUT, type=float,
+                            help='Seconds to timeout the connection')
     parser_set.set_defaults(func=set)
     # create the subparser for the 'get' command
     parser_get = subparsers.add_parser('get',
                                        help='Get data from the shareboard')
+    parser_get.add_argument('-t', '--timeout', default=DEFAULT_TIMEOUT, type=float,
+                            help='Seconds to timeout the connection')
     parser_get.set_defaults(func=get)
 
     args = parser.parse_args()
