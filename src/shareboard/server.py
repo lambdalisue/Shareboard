@@ -34,18 +34,21 @@ class HTTPPreviewRequestHandler(BaseHTTPRequestHandler):
                 return
             # decode text to unicode
             text = unicode(request['text'].value, self.server.encoding)
-            # modify the text with callback if it's specified
-            if self.server.callback:
-                text = self.server.callback(text)
-            # store the value
-            self.text = text
-            # emit request recieved if it's required
-            if hasattr(self.server, 'emitter'):
-                self.server.emitter.emit_request_recieved(text)
+            base_url = request.getvalue('base_url', 'file:///')
             # respond OK
             self.send_response(200)
             self.end_headers()
             self.wfile.write('OK')
+            # modify the text with callback if it's specified
+            if self.server.callback:
+                if base_url.startswith('file://'):
+                    cwd = base_url[len('file://'):]
+                text = self.server.callback(text, cwd)
+            # store the value
+            self.text = text
+            # emit request recieved if it's required
+            if hasattr(self.server, 'emitter'):
+                self.server.emitter.emit_request_recieved(text, base_url)
         except Exception, e:
             print "Error:", e
             self.send_response(500, e)

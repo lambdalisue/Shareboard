@@ -79,14 +79,14 @@ class HTMLViewer(QtGui.QWidget):
         self.view.print_(printer)
 
     # --- slots
-    @QtCore.Slot(unicode)
-    def update(self, value):
+    @QtCore.Slot(unicode, unicode)
+    def update(self, value, base_url='file:///'):
         # save vertical/horizontal scrollbar value
         m = self.view.page().mainFrame()
         v = m.scrollBarValue(QtCore.Qt.Vertical)
         h = m.scrollBarValue(QtCore.Qt.Horizontal)
         # set new HTML (value should be unicode)
-        self.view.setHtml(value)
+        self.view.setHtml(value, QtCore.QUrl(base_url))
         # update vertical/horizontal scrollbar value
         m = self.view.page().mainFrame()
         m.setScrollBarValue(QtCore.Qt.Vertical, v)
