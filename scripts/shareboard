@@ -54,7 +54,7 @@ def start(args):
 def set(args):
     url = 'http://%s:%s/' % (args.host, args.port)
     kwargs = {
-            'data': {'text': args.text, 'base_url': args.base_url},
+            'data': {'text': args.text, 'filename': args.filename},
             'timeout': args.timeout,
         }
     requests.post(url, **kwargs)
@@ -95,8 +95,8 @@ def main():
                                        help='Post new data to the shareboard')
     parser_set.add_argument('text',
                             help='Text data to be seted to the shareboard')
-    parser_set.add_argument('-b', '--base-url', default='file:///',
-                            help='Base URL of the file')
+    parser_set.add_argument('-f', '--filename', default='index.html',
+                            help='Filename of the text data. To use resolve relative path')
     parser_set.add_argument('-t', '--timeout', default=DEFAULT_TIMEOUT, type=float,
                             help='Seconds to timeout the connection')
     parser_set.set_defaults(func=set)
