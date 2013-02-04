@@ -7,7 +7,6 @@ class ShellParser(object):
         self.command = command
 
     def parse(self, text, cwd=None, encoding='utf-8'):
-        print "DEBUG", self.command, cwd
         if cwd == "":
             cwd = None
         p = subprocess.Popen(self.command, shell=True, cwd=cwd,
