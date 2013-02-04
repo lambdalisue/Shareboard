@@ -18,7 +18,7 @@ class HTTPPreviewRequestHandler(BaseHTTPRequestHandler):
         # respond data
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(self.text)
+        self.wfile.write(getattr(self.server, 'text', ''))
 
     def do_POST(self):
         try:
@@ -45,7 +45,7 @@ class HTTPPreviewRequestHandler(BaseHTTPRequestHandler):
                 cwd = os.path.dirname(filename)
                 text = self.server.callback(text, cwd)
             # store the value
-            self.text = text
+            self.server.text = text
             # emit request recieved if it's required
             if hasattr(self.server, 'emitter'):
                 self.server.emitter.emit_request_recieved(text, filename)
