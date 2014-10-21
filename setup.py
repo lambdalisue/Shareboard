@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 from setuptools import setup, find_packages
 
-version = "0.1.6"
+version = "0.1.7"
 
 def read(filename):
     import os.path
@@ -21,13 +21,15 @@ setup(
     keywords = "http clipboard pipe cui viewer",
     author = "Alisue",
     author_email = "lambdalisue@hashnote.net",
-    url=r"https://github.com/lambdalisue/reqviewer",
-    download_url = r"https://github.com/lambdalisue/reqviewer/tarball/master",
+    url=r"https://github.com/lambdalisue/Shareboard",
+    download_url = r"https://github.com/lambdalisue/Shareboard/tarball/master",
     license = 'MIT',
     packages = find_packages('src'),
     package_dir = {'': 'src'},
     scripts = ['scripts/shareboard'],
     include_package_data = True,
+    package_data = {
+        '': ['README.rst',],
+    },
     zip_safe = True,
-    install_requires=['setuptools', 'requests'],
 )
