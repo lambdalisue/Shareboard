@@ -23,8 +23,8 @@ class RequestServer(QtCore.QThread):
     def run(self):
         self.cui_server.start()
 
-    def emit_request_recieved(self, value):
-        self.request_recieved.emit(value)
+    def emit_request_recieved(self, value, filename='index.html'):
+        self.request_recieved.emit(value, filename)
 
     # --- signal
-    request_recieved = QtCore.Signal(unicode)
+    request_recieved = QtCore.Signal(unicode, unicode)

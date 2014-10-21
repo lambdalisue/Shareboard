@@ -1,6 +1,7 @@
 # vim: set fileencoding=utf-8 :
 import cgi
 import urlparse
+import os.path
 from BaseHTTPServer import HTTPServer
 from BaseHTTPServer import BaseHTTPRequestHandler
 
@@ -17,7 +18,7 @@ class HTTPPreviewRequestHandler(BaseHTTPRequestHandler):
         # respond data
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(self.text)
+        self.wfile.write(getattr(self.server, 'text', ''))
 
     def do_POST(self):
         try:
@@ -34,18 +35,20 @@ class HTTPPreviewRequestHandler(BaseHTTPRequestHandler):
                 return
             # decode text to unicode
             text = unicode(request['text'].value, self.server.encoding)
-            # modify the text with callback if it's specified
-            if self.server.callback:
-                text = self.callback(text)
-            # store the value
-            self.text = text
-            # emit request recieved if it's required
-            if hasattr(self.server, 'emitter'):
-                self.server.emitter.emit_request_recieved(text)
+            filename = request.getvalue('filename', 'index.html')
             # respond OK
             self.send_response(200)
             self.end_headers()
             self.wfile.write('OK')
+            # modify the text with callback if it's specified
+            if self.server.callback:
+                cwd = os.path.dirname(filename)
+                text = self.server.callback(text, cwd)
+            # store the value
+            self.server.text = text
+            # emit request recieved if it's required
+            if hasattr(self.server, 'emitter'):
+                self.server.emitter.emit_request_recieved(text, filename)
         except Exception, e:
             print "Error:", e
             self.send_response(500, e)
